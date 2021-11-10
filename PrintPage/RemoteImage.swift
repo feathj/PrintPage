@@ -15,13 +15,13 @@ struct RemoteImage: View {
                 fatalError("Invalid URL: \(url)")
             }
             
-            let cachedData = loadFromCache(url: url)
+            let cachedData = loadFromCache(cacheKey: url)
             if cachedData == nil {
                 URLSession.shared.dataTask(with: parsedURL) { data, response, error in
                     if let data = data, data.count > 0 {
                         self.data = data
                         self.state = .success
-                        self.saveToCache(url: url, data: data)
+                        saveToCache(cacheKey: url, data: data)
                     } else {
                         self.state = .failure
                     }
@@ -34,25 +34,6 @@ struct RemoteImage: View {
                 self.data = cachedData!
                 self.state = .success
             }
-        }
-        
-        func saveToCache(url: String, data: Data) {
-            let cachePath = cachePathFromUrl(url: url)
-            try? data.write(to: cachePath)
-        }
-        func loadFromCache(url: String) -> Data? {
-            let cachePath = cachePathFromUrl(url: url)
-            do{
-                let imageData = try Data(contentsOf: cachePath)
-                return imageData
-            } catch {
-                return nil
-            }
-        }
-        func cachePathFromUrl(url: String) -> URL {
-            let urlHash = SHA256.hash(data: Data(url.utf8)).description
-            let cachesDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-            return cachesDirectory.appendingPathComponent(urlHash)
         }
     }
 

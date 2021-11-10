@@ -6,34 +6,16 @@
 //
 
 import Foundation
-import CryptoKit
+import SwiftUI
 
-let apiKey = "AIzaSyAeTRnDVTCLBwFC2UHy_YNCx-x3BHJ8aq0"
-let searchEngineId = "f691fd6c1caba4962"
 
 // https://developers.google.com/custom-search/v1/reference/rest/v1/cse/list
-struct SearchResult {
+struct SearchResult: Hashable {
+    var id = UUID()
     var title = ""
     var link = ""
 }
-func saveToCache(searchText: String, data: Data) {
-    let cachePath = cachePathFromSearchText(searchText: searchText)
-    try? data.write(to: cachePath)
-}
-func loadFromCache(searchText: String) -> Data? {
-    let cachePath = cachePathFromSearchText(searchText: searchText)
-    do{
-        let data = try Data(contentsOf: cachePath)
-        return data
-    } catch {
-        return nil
-    }
-}
-func cachePathFromSearchText(searchText: String) -> URL {
-    let urlHash = SHA256.hash(data: Data(searchText.utf8)).description
-    let cachesDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-    return cachesDirectory.appendingPathComponent(urlHash)
-}
+
 func searchResultsFromData(data: Data) -> [SearchResult] {
     do{
         if let jsonResult = try JSONSerialization.jsonObject(with: data, options: []) as? NSDictionary {
@@ -51,14 +33,16 @@ func searchResultsFromData(data: Data) -> [SearchResult] {
 }
 
 // TODO: Better error handling
-func executeSearch(searchText:String, callback: @escaping ([SearchResult]) -> ()) {
+func executeSearch(apiKey:String, searchEngineId:String, searchText:String, page:Int=0, callback:@escaping ([SearchResult]) -> ()) {
+    let start = (page * 10) + 1
+    
     // Check cache first
-    let cachedData = loadFromCache(searchText: searchText)
+    let cachedData = loadFromCache(cacheKey: searchText + String(page))
     if cachedData != nil {
         return callback(searchResultsFromData(data: cachedData!))
     }
     
-    let serverAddress = String(format: "https://www.googleapis.com/customsearch/v1?q=%@&cx=%@&key=%@&searchType=image", searchText + "coloring pages", searchEngineId, apiKey)
+    let serverAddress = String(format: "https://www.googleapis.com/customsearch/v1?q=%@&cx=%@&key=%@&start=%d&searchType=image", searchText + "coloring pages", searchEngineId, apiKey, start)
     
     let url = serverAddress.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
     let finalUrl = URL(string: url!)
@@ -69,7 +53,7 @@ func executeSearch(searchText:String, callback: @escaping ([SearchResult]) -> ()
 
     let datatask = session.dataTask(with: request as URLRequest) { (data, response, error) in
         if data != nil {
-            saveToCache(searchText: searchText, data: data!)
+            saveToCache(cacheKey: searchText + String(page), data: data!)
             callback(searchResultsFromData(data: data!))
         } else {
             callback([])

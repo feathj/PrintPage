@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import CryptoKit
 
 extension NSImage {
     
@@ -61,4 +62,40 @@ extension NSImage {
         
         return scaledImage
     }
+}
+
+func saveToCache(cacheKey: String, data: Data) {
+    let cachePath = cachePathFromKey(cacheKey: cacheKey)
+    try? data.write(to: cachePath)
+}
+func loadFromCache(cacheKey: String) -> Data? {
+    let cachePath = cachePathFromKey(cacheKey: cacheKey)
+    do{
+        let data = try Data(contentsOf: cachePath)
+        return data
+    } catch {
+        return nil
+    }
+}
+func cachePathFromKey(cacheKey: String) -> URL {
+    let urlHash = SHA256.hash(data: Data(cacheKey.utf8)).description
+    let cacheHash = urlHash.dropFirst("SHA256 digest: ".count) // Hash description has this prefix, remove
+    let cachesDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+
+    return cachesDirectory.appendingPathComponent("print-page-cache-" + cacheHash)
+}
+func clearCache() {
+    let cachesDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+    do {
+        let fileUrls = try FileManager.default.contentsOfDirectory(at: cachesDirectory,
+                                                                   includingPropertiesForKeys: nil,
+                                                                   options: .skipsHiddenFiles)
+        for fileUrl in fileUrls {
+            if fileUrl.path.contains("/print-page-cache-"){
+                //print(fileUrl.path)
+                try FileManager.default.removeItem(at: fileUrl)
+            }
+        }
+        
+    } catch { print(error) }
 }

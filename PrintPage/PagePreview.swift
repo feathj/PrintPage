@@ -28,20 +28,43 @@ struct PagePreview: View {
         printInfo.isVerticallyCentered = false
         printInfo.isHorizontallyCentered = false
         
-        // Get printable area
+        // Get printable area from printer
         let bounds = printInfo.imageablePageBounds
         let marginWidth = printInfo.leftMargin + printInfo.rightMargin
         let marginHeight = printInfo.topMargin + printInfo.bottomMargin
         
-        // Get image and resize to printable area
-        let url = URL(string: self.link)
-        let image = NSImage(contentsOf: url!)
-        let scaledImage = image!.scaled(to: CGSize(width:bounds.width - marginWidth, height: bounds.height - marginHeight))
+        // Get image and find orientation (landscape or portrait)
+        var image: NSImage?
+        let data = loadFromCache(cacheKey: self.link)
+        if data != nil {
+            image = NSImage(data: data!)
+        } else {
+            let url = URL(string: self.link)
+            image = NSImage(contentsOf: url!)
+        }
+        let isLandscape = image!.size.width > image!.size.height
+       
+        // Scale image to printable area based on orientation
+        var scaledImage: NSImage
+        if isLandscape {
+            scaledImage = image!.scaled(to: CGSize(width:bounds.height - marginHeight, height: bounds.width - marginWidth))
+        } else {
+            scaledImage = image!.scaled(to: CGSize(width:bounds.width - marginWidth, height: bounds.height - marginHeight))
+        }
 
+        // Send orientation to printer
+        if isLandscape {
+            printInfo.orientation = .landscape
+        } else {
+            printInfo.orientation = .portrait
+        }
+
+        // Create new view for print operation
         let printContainerView = NSImageView()
         printContainerView.setFrameSize(NSSize(width: scaledImage.size.width, height: scaledImage.size.height))
         printContainerView.image = scaledImage
         
+        // Create a run print operation
         let printOperation = NSPrintOperation(view: printContainerView, printInfo: printInfo)
         printOperation.canSpawnSeparateThread = true
         printOperation.run()
